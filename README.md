@@ -5,7 +5,7 @@ Any enterprise grade database software needs to have a mature story when it come
 Before we get into this it is important to understand how backups are coordinated in CockroachDB. The following diagram shows the flow from BACKUP statement through to a complete backup in cloud storage:
 
 
-![backup architecture](images\backup-overview.png)
+![backup architecture](images/backup-overview.png)
 
 CockroachDB performs the following tasks when completing a backup job:
 
@@ -125,7 +125,7 @@ Example Output:
 
 These access keys contain unsupported characters for URLs so need to be URL Encoded. There are a number of ways to do this but I have just used this site to do it [URL Encoder](www.urlencoder.org).
 
-![alt text](images\url-encoder.png)
+![alt text](images/url-encoder.png)
 
 Once you have encoded all three Access Keys we can use these in the next step which is to create our backups!
 
@@ -184,7 +184,7 @@ Time: 42.149s total (execution 42.148s / network 0.001s)
 
 To validate your backup go to the Azure Portal, find each of your storage accounts and check the contents of each of your Containers. In each Container you should see some contents now.
 
-![alt text](images\azure-portal.png)
+![azure portal](images/azure-portal.png)
 
 Final Thoughts…
 So if you are deploying CockroachDB in a multi-region configuration in Azure consider configuring locality-aware backups. By using this approach you can reduce your data transfer cost by sending data to object storage in the same region. Also if you have to ensure that data does not leave a specific location for legislative reasons then locality-aware backups will ensure this. Give them a go!!!
