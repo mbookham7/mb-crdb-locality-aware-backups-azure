@@ -186,6 +186,6 @@ To validate your backup go to the Azure Portal, find each of your storage accoun
 
 ![azure portal](images/azure-portal.png)
 
-Final Thoughts…
+## Final Thoughts…
 So if you are deploying CockroachDB in a multi-region configuration in Azure consider configuring locality-aware backups. By using this approach you can reduce your data transfer cost by sending data to object storage in the same region. Also if you have to ensure that data does not leave a specific location for legislative reasons then locality-aware backups will ensure this. Give them a go!!!
 
