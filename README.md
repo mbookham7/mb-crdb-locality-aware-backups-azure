@@ -5,7 +5,7 @@ Any enterprise grade database software needs to have a mature story when it come
 Before we get into this it is important to understand how backups are coordinated in CockroachDB. The following diagram shows the flow from BACKUP statement through to a complete backup in cloud storage:
 
 
-![alt text](images\backup-overview.png)
+![backup architecture](images\backup-overview.png)
 
 CockroachDB performs the following tasks when completing a backup job:
 
