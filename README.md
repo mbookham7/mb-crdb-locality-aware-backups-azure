@@ -1,9 +1,8 @@
 # CockroachDB Locality-aware Backups for Azure Blob
 
-Any enterprise grade database software needs to have a mature story when it comes to Backup and Recovery. Historically, due to limitations in their architecture many relational databases technologies relied heavily on this in the event of a disaster. Using backups to recover the data to a backup system potentially in a different location, a secondary Disaster Recovery (DR) data centre for example. Technology has advanced over recent years driven mainly by the hyper scalers. Increasing the resilience of these solutions with the introduction of Read Replica standby nodes ready to take over if the master node fails. These can be spread over multiple locations. CockroachDB is leading a new wave of database technology called Globally Distributed SQL, these technologies distribute the data over many nodes, scaling reads and writes to deliver massive scale. Although these multi-node, high availability solutions are less dependent on backups for recovery they are still a requirement to protect against human error, malicious activity and data corruption. CockroachDB’s backup solution is to take advantage of an available Object Store. In a single region this is straightforward nodes send data directly to the object store in the same region. For restores, backups can be retrieved and restored. How does this work for a multi regional setup?
-
+Any enterprise-grade database needs to have a mature story when it comes to Backup and Recovery. Historically, due to limitations in their architecture, many relational database technologies relied heavily on backups in the event of a disaster. Using these backups to recover data to a secondary location used for Disaster Recovery for example. Technology has advanced over recent years, driven mainly by the hyper scalers. The introduction of Read Replica standby nodes, that are distributed over multiple locations, and are ready to take over if the primary node fails, has increased the resilience of these solutions. These can be spread over multiple locations.
+CockroachDB is leading a new wave of database technology called Globally Distributed SQL. This technology distributes the data over many nodes, scaling reads and writes to deliver massive scale. Although these multi-node, high availability solutions are less dependent on backups for recovery they are still needed to protect against human error, malicious activity and data corruption. CockroachDB’s backup solution takes advantage of an available Object Store. In a single region this is straightforward nodes send data directly to the object store in the same region. For restores, backups can be retrieved from the object store and restored. How does this work for a multi regional setup?
 Before we get into this it is important to understand how backups are coordinated in CockroachDB. The following diagram shows the flow from BACKUP statement through to a complete backup in cloud storage:
-
 
 ![backup architecture](images/backup-overview.png)
 
@@ -182,9 +181,70 @@ Time: 42.149s total (execution 42.148s / network 0.001s)
 
 ## Step 5: Validate the backup
 
-To validate your backup go to the Azure Portal, find each of your storage accounts and check the contents of each of your Containers. In each Container you should see some contents now.
+To validate the backups taken we can use a number of steps. The first of which is via the Azure Portal. Find each of your storage accounts and check the contents of each of your Containers. In each Container you should see some contents now.
 
 ![azure portal](images/azure-portal.png)
+
+With the release of CockroachDB 22.2.0 there are some additional capabilities that allow you to view and verify the backups that have been taken. To find a specific backup to validate, first show the stored backups in the storage location.
+
+```
+SHOW BACKUPS IN ('azure://uksouth-backups?COCKROACH_LOCALITY=default&AZURE_ACCOUNT_NAME=crdbuksouthstorageacc&AZURE_ACCOUNT_KEY=MwbWRw0VrJKhgKyN52E7vGNCyJEt0GYQMC%2FefxSS6%2FqhdCfkIDACHJc1GSbP0YURp2Uf7iV2Rqm0%2BASta7vwrw%3D%3D', 'azure://uksouth-backups?COCKROACH_LOCALITY=region%3Duksouth&AZURE_ACCOUNT_NAME=crdbuksouthstorageacc&AZURE_ACCOUNT_KEY=MwbWRw0VrJKhgKyN52E7vGNCyJEt0GYQMC%2FefxSS6%2FqhdCfkIDACHJc1GSbP0YURp2Uf7iV2Rqm0%2BASta7vwrw%3D%3D', 'azure://ukwest-backups?COCKROACH_LOCALITY=region%3Dukwest&AZURE_ACCOUNT_NAME=crdbukweststorageacc&AZURE_ACCOUNT_KEY=f6e7Q5quzl8sjBUpI5%2BMev8LlC5AbKnfSC5xjGP1wnt5iO%2FHwkk8QBvKAIa%2FCXbrxqtFZUkLo8dg%2BASttxDOkQ%3D%3D', 'azure://northeurope-backups?COCKROACH_LOCALITY=region%3Dnortheurope&AZURE_ACCOUNT_NAME=crdbnortheurstorageacc&AZURE_ACCOUNT_KEY=cM2u86YRjoX%2Fbz4GrAw1EVVApQYV4Zz%2BHRZ5rA%2BVaGDJEo6Yj1IkzptHNxDYtXn8l5QYvY2Haw3L%2BAStdB6mFA%3D%3D');
+```
+
+This will list all the available backups in the storage location. Below is an example output that lists a number of backups.
+
+Example Output:
+```
+          path
+------------------------
+  2022/12/07-164834.62
+  2022/12/07-165714.97
+  2022/12/13-112822.40
+  2022/12/13-135245.43
+(4 rows)
+
+
+Time: 53ms total (execution 52ms / network 1ms)
+```
+
+Use `SHOW BACKUP ... check_files` with a backup for validation:
+
+```
+SHOW BACKUP "2022/12/13-135245.43" IN ('azure://uksouth-backups?COCKROACH_LOCALITY=default&AZURE_ACCOUNT_NAME=crdbuksouthstorageacc&AZURE_ACCOUNT_KEY=MwbWRw0VrJKhgKyN52E7vGNCyJEt0GYQMC%2FefxSS6%2FqhdCfkIDACHJc1GSbP0YURp2Uf7iV2Rqm0%2BASta7vwrw%3D%3D', 'azure://uksouth-backups?COCKROACH_LOCALITY=region%3Duksouth&AZURE_ACCOUNT_NAME=crdbuksouthstorageacc&AZURE_ACCOUNT_KEY=MwbWRw0VrJKhgKyN52E7vGNCyJEt0GYQMC%2FefxSS6%2FqhdCfkIDACHJc1GSbP0YURp2Uf7iV2Rqm0%2BASta7vwrw%3D%3D', 'azure://ukwest-backups?COCKROACH_LOCALITY=region%3Dukwest&AZURE_ACCOUNT_NAME=crdbukweststorageacc&AZURE_ACCOUNT_KEY=f6e7Q5quzl8sjBUpI5%2BMev8LlC5AbKnfSC5xjGP1wnt5iO%2FHwkk8QBvKAIa%2FCXbrxqtFZUkLo8dg%2BASttxDOkQ%3D%3D', 'azure://northeurope-backups?COCKROACH_LOCALITY=region%3Dnortheurope&AZURE_ACCOUNT_NAME=crdbnortheurstorageacc&AZURE_ACCOUNT_KEY=cM2u86YRjoX%2Fbz4GrAw1EVVApQYV4Zz%2BHRZ5rA%2BVaGDJEo6Yj1IkzptHNxDYtXn8l5QYvY2Haw3L%2BAStdB6mFA%3D%3D') WITH check_files;
+```
+
+This will return the following output after validating that the backup files are correct and present:
+
+Example Output:
+```
+  database_name | parent_schema_name |        object_name         | object_type | backup_type | start_time |          end_time          | size_bytes |   rows   | is_full_cluster | file_bytes
+----------------+--------------------+----------------------------+-------------+-------------+------------+----------------------------+------------+----------+-----------------+-------------
+  NULL          | NULL               | system                     | database    | full        | NULL       | 2022-12-13 13:52:45.435754 |       NULL |     NULL |      true       |       NULL
+  system        | public             | users                      | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |        210 |        3 |      true       |         77
+  system        | public             | zones                      | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |        236 |        8 |      true       |        578
+  system        | public             | settings                   | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |        376 |        6 |      true       |        921
+  system        | public             | ui                         | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |        158 |        1 |      true       |        131
+  system        | public             | jobs                       | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |     219180 |      409 |      true       |      81394
+  system        | public             | locations                  | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |        410 |        8 |      true       |       1258
+  system        | public             | role_members               | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |        192 |        2 |      true       |         96
+  system        | public             | comments                   | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |          0 |        0 |      true       |          0
+  system        | public             | role_options               | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |          0 |        0 |      true       |          0
+  system        | public             | scheduled_jobs             | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |       1056 |        2 |      true       |        741
+  system        | public             | database_role_settings     | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |          0 |        0 |      true       |          0
+  NULL          | NULL               | defaultdb                  | database    | full        | NULL       | 2022-12-13 13:52:45.435754 |       NULL |     NULL |      true       |       NULL
+  NULL          | NULL               | postgres                   | database    | full        | NULL       | 2022-12-13 13:52:45.435754 |       NULL |     NULL |      true       |       NULL
+  NULL          | NULL               | movr                       | database    | full        | NULL       | 2022-12-13 13:52:45.435754 |       NULL |     NULL |      true       |       NULL
+  movr          | public             | users                      | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |  115561662 |  1275689 |      true       |   98087324
+  movr          | public             | vehicles                   | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |   82132399 |   422992 |      true       |   48101884
+  movr          | public             | rides                      | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |  436728347 |  1696608 |      true       |  288857459
+  movr          | public             | vehicle_location_histories | table       | full        | NULL       | 2022-12-13 13:52:45.435754 | 2862438789 | 42407198 |      true       | 1380192295
+  movr          | public             | promo_codes                | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |   30221799 |   128996 |      true       |   19655643
+  movr          | public             | user_promo_codes           | table       | full        | NULL       | 2022-12-13 13:52:45.435754 |   37902230 |   421542 |      true       |   24932122
+(21 rows)
+
+
+Time: 1.692s total (execution 1.691s / network 0.001s)
+```
 
 ## Final Thoughts…
 So if you are deploying CockroachDB in a multi-region configuration in Azure consider configuring locality-aware backups. By using this approach you can reduce your data transfer cost by sending data to object storage in the same region. Also if you have to ensure that data does not leave a specific location for legislative reasons then locality-aware backups will ensure this. Give them a go!!!
